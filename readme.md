@@ -1,5 +1,5 @@
-Building a Cloud-Native PDF Upload App on Microsoft Azure
-### A Full-Stack Journey from Zero to Production
+### Building a Cloud-Native PDF Upload App on Microsoft Azure
+
 
 ---
 
