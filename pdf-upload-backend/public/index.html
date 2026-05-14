@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDF Upload</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 480px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    .card h1 {
+      font-size: 1.6rem;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    .card p.subtitle {
+      color: #666;
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    .dropzone {
+      border: 2px dashed #a0aec0;
+      border-radius: 12px;
+      padding: 40px 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f7fafc;
+    }
+
+    .dropzone:hover, .dropzone.active {
+      border-color: #4299e1;
+      background: #ebf8ff;
+    }
+
+    .dropzone svg {
+      width: 48px;
+      height: 48px;
+      color: #a0aec0;
+      margin-bottom: 12px;
+    }
+
+    .dropzone p {
+      color: #718096;
+      font-size: 0.95rem;
+    }
+
+    .dropzone p span {
+      color: #4299e1;
+      font-weight: 600;
+    }
+
+    .dropzone input[type="file"] {
+      display: none;
+    }
+
+    .file-info {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #f7fafc;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 0.9rem;
+      color: #4a5568;
+      display: none;
+    }
+
+    .file-info.show { display: block; }
+    .file-info strong { color: #2d3748; }
+
+    button {
+      margin-top: 24px;
+      width: 100%;
+      padding: 14px;
+      background: #4299e1;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #3182ce; }
+    button:disabled { background: #a0aec0; cursor: not-allowed; }
+
+    .status {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.uploading { background: #ebf8ff; color: #2b6cb0; }
+    .status.success   { background: #f0fff4; color: #276749; }
+    .status.error     { background: #fff5f5; color: #c53030; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>PDF Upload</h1>
+    <p class="subtitle">Upload a PDF file to Azure Blob Storage</p>
+
+    <div class="dropzone" id="dropzone">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <p>Drag & drop a PDF here, or <span>browse</span></p>
+      <p style="font-size:0.8rem;margin-top:6px;color:#a0aec0">PDF files only</p>
+      <input type="file" id="fileInput" accept="application/pdf" />
+    </div>
+
+    <div class="file-info" id="fileInfo">
+      <strong id="fileName"></strong><br/>
+      <span id="fileSize"></span>
+    </div>
+
+    <button id="uploadBtn" disabled>Upload PDF</button>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const dropzone   = document.getElementById('dropzone');
+    const fileInput  = document.getElementById('fileInput');
+    const uploadBtn  = document.getElementById('uploadBtn');
+    const fileInfo   = document.getElementById('fileInfo');
+    const fileName   = document.getElementById('fileName');
+    const fileSize   = document.getElementById('fileSize');
+    const status     = document.getElementById('status');
+
+    let selectedFile = null;
+
+    function formatSize(bytes) {
+      return bytes >= 1048576
+        ? (bytes / 1048576).toFixed(2) + ' MB'
+        : (bytes / 1024).toFixed(1) + ' KB';
+    }
+
+    function setFile(file) {
+      if (!file || file.type !== 'application/pdf') {
+        showStatus('error', 'Please select a PDF file.');
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = formatSize(file.size);
+      fileInfo.classList.add('show');
+      uploadBtn.disabled = false;
+      status.classList.remove('show');
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('active'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('active');
+      setFile(e.dataTransfer.files[0]);
+    });
+
+    function showStatus(type, message) {
+      status.className = `status show ${type}`;
+      status.textContent = message;
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      uploadBtn.disabled = true;
+      showStatus('uploading', 'Uploading...');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (res.ok) {
+          showStatus('success', `✓ "${selectedFile.name}" uploaded successfully!`);
+          selectedFile = null;
+          fileInfo.classList.remove('show');
+          uploadBtn.disabled = true;
+        } else {
+          showStatus('error', `Upload failed: ${data.error}`);
+          uploadBtn.disabled = false;
+        }
+      } catch (err) {
+        showStatus('error', 'Network error — please try again.');
+        uploadBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
